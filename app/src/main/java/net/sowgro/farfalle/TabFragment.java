@@ -1,54 +1,68 @@
 package net.sowgro.farfalle;
 
 import android.annotation.SuppressLint;
+import android.content.ClipData;
+import android.content.ClipDescription;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.os.Bundle;
 
-import androidx.annotation.NonNull;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.databinding.ObservableField;
-import androidx.databinding.ObservableList;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentActivity;
-import androidx.viewpager2.adapter.FragmentStateAdapter;
 
 import android.os.Handler;
+import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.PixelCopy;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
+import android.webkit.WebChromeClient;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 
+/**
+ * The layout for each tab, containing a webview and url bar
+ */
 public class TabFragment extends Fragment {
 
     public static final String SEARCH_ENGINE = "https://google.com/search?q=";
-    private static final String HOME_PAGE = "https://google.com/";
+    public static final String HOME_PAGE = "https://google.com/";
 
-    FarfalleWebView webView;
+    WebView webView;
     EditText urlBar;
     ProgressBar progressBar;
 
     ObservableField<Bitmap> preview = new ObservableField<>(null);
     ObservableField<String> title = new ObservableField<>("");
-    private View v;
+    private final String url;
+    private final TabService tabs;
+    private final Context context;
 
-    public TabFragment(Context context) {
-        webView = new FarfalleWebView(context);
+    @SuppressLint("SetJavaScriptEnabled")
+    public TabFragment(Context context, String url) {
+        this.context = context;
+        this.url = url;
+        this.tabs = TabService.INSTANCE;
+        webView = new WebView(context);
+        webView.getSettings().setJavaScriptEnabled(true);
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        v = inflater.inflate(R.layout.fragment_tab_content, container, false);
+        View v = inflater.inflate(R.layout.fragment_tab_content, container, false);
         super.onCreate(savedInstanceState);
 
         ConstraintLayout constraintLayout = v.findViewById(R.id.root);
         progressBar = v.findViewById(R.id.progressBar);
         urlBar = v.findViewById(R.id.urlBar);
 
+        // remount webview
         var layoutParams = new ConstraintLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0);
         layoutParams.bottomToBottom = R.id.root;
         layoutParams.endToEnd = R.id.root;
@@ -60,25 +74,40 @@ public class TabFragment extends Fragment {
             constraintLayout.addView(webView, layoutParams);
         } else {
             constraintLayout.addView(webView, layoutParams);
-            webView.loadUrl(HOME_PAGE);
+            webView.loadUrl(url);
         }
 
-        webView.getWebChromeClient().setOnReceivedTitleListener((a, b) -> {
-            title.set(b);
-        });
-
-        webView.getWebViewClient().setOnUrlChangeListener((a, url, c) -> {
-            urlBar.setText(url);
-        });
-
-        webView.getWebChromeClient().setOnProgressChangedListener((webview, progress) -> {
-            if (progress == 100) {
-                progressBar.setVisibility(View.INVISIBLE);
-            } else {
-                progressBar.setVisibility(View.VISIBLE);
-                progressBar.setProgress(progress);
+        // bind
+        var webViewClient = new WebViewClient() {
+            @Override
+            public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+                urlBar.setText(url);
+                super.doUpdateVisitedHistory(view, url, isReload);
             }
-        });
+        };
+        webView.setWebViewClient(webViewClient);
+
+        var webChromeClient = new WebChromeClient() {
+            @Override
+            public void onReceivedTitle(WebView view, String newTitle) {
+                title.set(newTitle);
+                super.onReceivedTitle(view, newTitle);
+            }
+
+            @Override
+            public void onProgressChanged(WebView view, int newProgress) {
+                if (newProgress == 100) {
+                    progressBar.setVisibility(View.INVISIBLE);
+                } else {
+                    progressBar.setVisibility(View.VISIBLE);
+                    progressBar.setProgress(newProgress);
+                }
+                super.onProgressChanged(view, newProgress);
+            }
+        };
+        webView.setWebChromeClient(webChromeClient);
+
+        webView.setOnCreateContextMenuListener(this::createContextMenu);
 
         urlBar.setOnEditorActionListener((a, b, c) -> {
                 webView.loadUrl(navOrSearch(a.getText().toString()));
@@ -90,6 +119,9 @@ public class TabFragment extends Fragment {
         return v;
     }
 
+    /**
+     * Updates the preview image
+     */
     public void updatePreview() {
         var bitmap = Bitmap.createBitmap(webView.getWidth(), webView.getWidth(), Bitmap.Config.RGB_565);
         var locationOfViewInWindow = new int[2];
@@ -111,7 +143,12 @@ public class TabFragment extends Fragment {
                 new Handler());
     }
 
-    String navOrSearch(String s) {
+    /**
+     * Determines if the text entered in the URL bar is a full URL, URL without scheme or search term.
+     * @param s The input string
+     * @return A valid full URL to load
+     */
+    private String navOrSearch(String s) {
         if (!s.contains(" ") && s.contains(".")) {
             if (s.contains("://")) {
                 return s;
@@ -123,50 +160,35 @@ public class TabFragment extends Fragment {
         }
     }
 
-    public static class ContentAdapter extends FragmentStateAdapter {
-        private final ObservableList<TabFragment> tabs;
+    private void createContextMenu(ContextMenu contextMenu, View view, ContextMenu.ContextMenuInfo info) {
+        contextMenu.add("Open in new tab...").setOnMenuItemClickListener((m) -> {
+            WebView.HitTestResult result = webView.getHitTestResult();
 
-        public ContentAdapter(@NonNull FragmentActivity fragmentActivity, ObservableList<TabFragment> tabs) {
-            super(fragmentActivity);
-            this.tabs = tabs;
-            tabs.addOnListChangedCallback(new ObservableList.OnListChangedCallback<>() {
-                @SuppressLint("NotifyDataSetChanged")
-                @Override
-                public void onChanged(ObservableList<TabFragment> sender) {
-                    notifyDataSetChanged();
-                }
+            if (result.getType() == WebView.HitTestResult.SRC_ANCHOR_TYPE) {
+                var url = result.getExtra();
+                tabs.addTab(new TabFragment(context, url));
+            }
+            return true;
+        });
+        contextMenu.add("Copy to clipboard").setOnMenuItemClickListener((m) -> {
+            var cb = ((ClipboardManager) view.getContext().getSystemService(Context.CLIPBOARD_SERVICE));
 
-                @Override
-                public void onItemRangeChanged(ObservableList<TabFragment> sender, int positionStart, int itemCount) {
-                    notifyItemRangeChanged(positionStart, itemCount);
-                }
+            WebView.HitTestResult result = webView.getHitTestResult();
 
-                @Override
-                public void onItemRangeInserted(ObservableList<TabFragment> sender, int positionStart, int itemCount) {
-                    notifyItemRangeInserted(positionStart, itemCount);
-                }
+            if (result.getType() == WebView.HitTestResult.SRC_ANCHOR_TYPE) {
+                var url = result.getExtra();
+                cb.setPrimaryClip(
+                        new ClipData(
+                                new ClipDescription(
+                                        "copied url",
+                                        new String[]{"text/uri-list"}
+                                ),
+                                new ClipData.Item(url)
+                        )
+                );
+            }
+            return true;
+        });
 
-                @Override
-                public void onItemRangeMoved(ObservableList<TabFragment> sender, int fromPosition, int toPosition, int itemCount) {
-                    notifyItemMoved(fromPosition, toPosition);
-                }
-
-                @Override
-                public void onItemRangeRemoved(ObservableList<TabFragment> sender, int positionStart, int itemCount) {
-                    notifyItemRangeRemoved(positionStart, itemCount);
-                }
-            });
-        }
-
-        @Override
-        public int getItemCount() {
-            return tabs.size();
-        }
-
-        @NonNull
-        @Override
-        public Fragment createFragment(int position) {
-            return tabs.get(position);
-        }
     }
 }
