@@ -6,7 +6,7 @@ Todo
 - [x] ability to add/remove tabs
 - [x] render tab images
 - [ ] fix tab deletion bug
-- [ ] link context menu
+- [x] link context menu
 - [ ] register system link handler
 - [ ] download support
 

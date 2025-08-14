@@ -51,9 +51,9 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        FragmentContainerView bottom = findViewById(R.id.bottom);
-        BottomSheetBehavior<FragmentContainerView> bottomSheetBehavior = BottomSheetBehavior.from(bottom);
-        bottomSheetBehavior.setPeekHeight(bottom.getHeight() + 10);
+        FragmentContainerView fragmentView = findViewById(R.id.bottom);
+        BottomSheetBehavior<FragmentContainerView> bottomSheetBehavior = BottomSheetBehavior.from(fragmentView);
+        bottomSheetBehavior.setPeekHeight(fragmentView.getHeight() + 10);
         bottomSheetBehavior.addBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
             int prevState = BottomSheetBehavior.STATE_COLLAPSED;
             @Override
