@@ -17,12 +17,15 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:ems="10"
-        android:hint="Enter URL or search"
+        android:hint="@string/enter_url_or_search"
         android:inputType="textUri"
         android:selectAllOnFocus="true"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        android:paddingHorizontal="10dp"
+        android:paddingBottom="7.5dp"
+        android:background="?android:attr/colorBackground"/>
 
     <ProgressBar
         android:id="@+id/progressBar"
@@ -35,13 +38,6 @@
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent" />
 
-    <!--    <WebView-->
-<!--        android:id="@+id/webView"-->
-<!--        android:layout_width="match_parent"-->
-<!--        android:layout_height="0dp"-->
-<!--        app:layout_constraintBottom_toBottomOf="parent"-->
-<!--        app:layout_constraintEnd_toEndOf="parent"-->
-<!--        app:layout_constraintStart_toStartOf="parent"-->
-<!--        app:layout_constraintTop_toBottomOf="@+id/urlBar" />-->
+    <!-- WebView inserted here pragmatically -->
 
 </androidx.constraintlayout.widget.ConstraintLayout>
