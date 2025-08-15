@@ -161,21 +161,17 @@ public class TabFragment extends Fragment {
     }
 
     private void createContextMenu(ContextMenu contextMenu, View view, ContextMenu.ContextMenuInfo info) {
-        contextMenu.add("Open in new tab...").setOnMenuItemClickListener((m) -> {
-            WebView.HitTestResult result = webView.getHitTestResult();
+        WebView.HitTestResult result = webView.getHitTestResult();
+        if (result.getType() == WebView.HitTestResult.SRC_ANCHOR_TYPE) {
 
-            if (result.getType() == WebView.HitTestResult.SRC_ANCHOR_TYPE) {
+            contextMenu.add("Open in new tab...").setOnMenuItemClickListener((m) -> {
                 var url = result.getExtra();
                 tabs.addTab(new TabFragment(context, url));
-            }
-            return true;
-        });
-        contextMenu.add("Copy to clipboard").setOnMenuItemClickListener((m) -> {
-            var cb = ((ClipboardManager) view.getContext().getSystemService(Context.CLIPBOARD_SERVICE));
+                return true;
+            });
 
-            WebView.HitTestResult result = webView.getHitTestResult();
-
-            if (result.getType() == WebView.HitTestResult.SRC_ANCHOR_TYPE) {
+            contextMenu.add("Copy to clipboard").setOnMenuItemClickListener((m) -> {
+                var cb = ((ClipboardManager) view.getContext().getSystemService(Context.CLIPBOARD_SERVICE));
                 var url = result.getExtra();
                 cb.setPrimaryClip(
                         new ClipData(
@@ -186,9 +182,8 @@ public class TabFragment extends Fragment {
                                 new ClipData.Item(url)
                         )
                 );
-            }
-            return true;
-        });
-
+                return true;
+            });
+        }
     }
 }
